@@ -22,7 +22,7 @@ type ELKLogger struct {
 	*Option
 }
 
-func WithContext(ctx context.Context, optFuncList ...OptionFunc) (Logger, error) {
+func WithContext(ctx context.Context, optFuncList ...OptionFunc) (*ELKLogger, error) {
 	var (
 		logger = logrus.New()
 		conn   net.Conn
@@ -51,7 +51,7 @@ func WithContext(ctx context.Context, optFuncList ...OptionFunc) (Logger, error)
 	return elk, nil
 }
 
-func WithContextAndAddress(ctx context.Context, addr string) (Logger, error) {
+func WithContextAndAddress(ctx context.Context, addr string) (*ELKLogger, error) {
 	return WithContext(ctx, WithAddress(addr))
 }
 
@@ -94,7 +94,7 @@ func (e *ELKLogger) Slowv(v interface{}) {
 	e.FieldLogger.Info(v)
 }
 
-func (e *ELKLogger) WithDuration(d time.Duration) Logger {
+func (e *ELKLogger) WithDuration(d time.Duration) *ELKLogger {
 	e.Duration = ReprOfDuration(d)
 	return e
 }
