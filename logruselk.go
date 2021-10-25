@@ -9,12 +9,36 @@ import (
 	"github.com/bshuster-repo/logrus-logstash-hook"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"github.com/tal-tech/go-zero/core/logx"
 )
 
 const (
-	callerDepth = 3
-	TraceIDKey  = "traceID"
+	TraceIDKey = "traceID"
 )
+
+// NewXELKLoggerWithContext new go-zero elk logger
+func NewXELKLoggerWithContext(ctx context.Context, optFuncList ...OptionFunc) logx.Logger {
+	var (
+		logger         logx.Logger
+		loggerELK, err = WithContext(ctx, optFuncList...)
+	)
+	if err != nil {
+		logger = logx.WithContext(ctx)
+		logger.Errorf("new ELKLogger WithContext err: %+v", err)
+	} else {
+		logger = &XELKLogger{ELKLogger: loggerELK}
+	}
+	return logger
+}
+
+type XELKLogger struct {
+	*ELKLogger
+}
+
+func (e *XELKLogger) WithDuration(d time.Duration) logx.Logger {
+	e.ELKLogger.WithDuration(d)
+	return e
+}
 
 type ELKLogger struct {
 	logrus.FieldLogger
@@ -22,6 +46,7 @@ type ELKLogger struct {
 	*Option
 }
 
+// WithContext new elk logger
 func WithContext(ctx context.Context, optFuncList ...OptionFunc) (*ELKLogger, error) {
 	var (
 		logger = logrus.New()
