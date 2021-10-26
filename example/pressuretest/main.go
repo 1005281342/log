@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	pressure(time.Minute, 10*time.Millisecond)
+	pressure(time.Second*60, 1*time.Millisecond)
 }
 
 func pressure(lifeCycle time.Duration, interval time.Duration) {
@@ -26,7 +26,10 @@ func pressure(lifeCycle time.Duration, interval time.Duration) {
 	for {
 		select {
 		case <-it.C:
-			sendMessage()
+			//sendMessage()
+			//sendMessageWithXELKLogger()
+			//sendMessageWithXELKLogger2()
+			sendMessageWithXELKLogger3()
 		case <-lc.C:
 			return
 		}
@@ -40,7 +43,7 @@ var (
 
 func init() {
 	var ctx = context.Background()
-	ctx = log.SetTraceID(ctx, "jesontest20210125-1")
+	ctx = log.SetTraceID(ctx, "jesontest20210125-1-3")
 
 	var err error
 	logger, err = log.WithContext(ctx,
@@ -58,3 +61,41 @@ func sendMessage() {
 	logger.Infof("hello %d", cnt)
 	atomic.AddInt32(&cnt, 1)
 }
+
+func sendMessageWithXELKLogger3() {
+	var ctx = context.Background()
+	ctx = log.SetTraceID(ctx, "jesontest20210126-6")
+	var loggerX = log.NewXELKLoggerWithContext(ctx, log.WithAddress("127.0.0.1:5000"),
+		log.WithAppName("jeson"),
+		log.WithFuncName("sendMessageWithXELKLogger3"),
+	)
+	loggerX.Infof("hello %d", cnt)
+	atomic.AddInt32(&cnt, 1)
+}
+
+//func sendMessageWithXELKLogger2() {
+//	var ctx = context.Background()
+//	ctx = log.SetTraceID(ctx, "jesontest20210126-5")
+//	var loggerX, connCloseFunc = log.NewXELKLoggerWithContext(ctx, log.WithAddress("127.0.0.1:5000"),
+//		log.WithAppName("jeson"),
+//		log.WithFuncName("sendMessageWithXELKLogger"),
+//	)
+//	defer func() {
+//		if err := connCloseFunc(); err != nil {
+//			fmt.Printf("close conn failed: %+v \n", err)
+//		}
+//	}()
+//	loggerX.Infof("hello %d", cnt)
+//	atomic.AddInt32(&cnt, 1)
+//}
+
+//func sendMessageWithXELKLogger() {
+//	var ctx = context.Background()
+//	ctx = log.SetTraceID(ctx, "jesontest20210126-1")
+//	var loggerX = log.NewXELKLoggerWithContext(ctx, log.WithAddress("127.0.0.1:5000"),
+//		log.WithAppName("jeson"),
+//		log.WithFuncName("sendMessageWithXELKLogger"),
+//	)
+//	loggerX.Infof("hello %d", cnt)
+//	atomic.AddInt32(&cnt, 1)
+//}

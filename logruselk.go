@@ -3,7 +3,9 @@ package log
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/bshuster-repo/logrus-logstash-hook"
@@ -25,11 +27,28 @@ func NewXELKLoggerWithContext(ctx context.Context, optFuncList ...OptionFunc) lo
 	if err != nil {
 		logger = logx.WithContext(ctx)
 		logger.Errorf("new ELKLogger WithContext err: %+v", err)
-	} else {
-		logger = &XELKLogger{ELKLogger: loggerELK}
+		return logger
 	}
+	logger = &XELKLogger{ELKLogger: loggerELK}
 	return logger
 }
+
+//// NewXELKLoggerWithContext new go-zero elk logger
+//func NewXELKLoggerWithContext(ctx context.Context, optFuncList ...OptionFunc) (logx.Logger, func() error) {
+//	var (
+//		logger         logx.Logger
+//		loggerELK, err = WithContext(ctx, optFuncList...)
+//	)
+//	if err != nil {
+//		logger = logx.WithContext(ctx)
+//		logger.Errorf("new ELKLogger WithContext err: %+v", err)
+//		return logger, func() error {
+//			return nil
+//		}
+//	}
+//	logger = &XELKLogger{ELKLogger: loggerELK}
+//	return logger, loggerELK.Close
+//}
 
 type XELKLogger struct {
 	*ELKLogger
@@ -43,8 +62,51 @@ func (e *XELKLogger) WithDuration(d time.Duration) logx.Logger {
 type ELKLogger struct {
 	logrus.FieldLogger
 	Duration string
+	//conn     net.Conn
 	*Option
 }
+
+var addrConnObj = &addrConn{connPoolMap: new(sync.Map)}
+
+type addrConn struct {
+	connPoolMap *sync.Map
+}
+
+var defaultPoolSize = 32
+
+func (a *addrConn) GetConn(addr string) (net.Conn, error) {
+	var v, ok = a.connPoolMap.Load(addr)
+	if !ok {
+		var conn, err = net.DialTimeout("tcp", addr, 100*time.Millisecond)
+		if err != nil {
+			return nil, err
+		}
+		var connPool = make([]net.Conn, 0, defaultPoolSize)
+		connPool = append(connPool, conn)
+		a.connPoolMap.Store(addr, connPool)
+		return conn, nil
+	}
+
+	var connPool []net.Conn
+	if connPool, ok = v.([]net.Conn); !ok {
+		return nil, fmt.Errorf("connPool not is `[]net.Conn`")
+	}
+	if len(connPool) <= defaultPoolSize {
+		var conn, err = net.DialTimeout("tcp", addr, 100*time.Millisecond)
+		if err != nil {
+			return nil, err
+		}
+		connPool = append(connPool, conn)
+		a.connPoolMap.Store(addr, connPool)
+		return conn, nil
+	}
+	return connPool[rand.Intn(len(connPool))], nil
+}
+
+// GetConn 获取连接
+//func (e *ELKLogger) GetConn() net.Conn {
+//	return e.conn
+//}
 
 // WithContext new elk logger
 func WithContext(ctx context.Context, optFuncList ...OptionFunc) (*ELKLogger, error) {
@@ -63,9 +125,15 @@ func WithContext(ctx context.Context, optFuncList ...OptionFunc) (*ELKLogger, er
 		"FuncName": elk.FuncName,
 	}
 
-	if conn, err = net.Dial("tcp", elk.Address); err != nil {
+	if conn, err = addrConnObj.GetConn(elk.Address); err != nil {
 		return nil, err
 	}
+
+	//if conn, err = net.DialTimeout("tcp", elk.Address, 100*time.Millisecond); err != nil {
+	//	return nil, err
+	//}
+	//elk.conn = conn
+
 	var hook = logrustash.New(conn, logrustash.DefaultFormatter(fields))
 	logger.Hooks.Add(hook)
 
@@ -98,6 +166,18 @@ func getTraceID(ctx context.Context) string {
 	}
 	return v
 }
+
+// Close 关闭连接
+//func (e *ELKLogger) Close() error {
+//	if e == nil {
+//		return nil
+//	}
+//
+//	if e.conn == nil {
+//		return nil
+//	}
+//	return e.conn.Close()
+//}
 
 func (e *ELKLogger) Errorv(v interface{}) {
 	e.FieldLogger.Error(v)
