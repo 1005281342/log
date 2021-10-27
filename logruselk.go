@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -15,11 +17,12 @@ import (
 )
 
 const (
+	// TraceIDKey traceID key
 	TraceIDKey = "traceID"
 )
 
-// NewXELKLoggerWithContext new go-zero elk logger
-func NewXELKLoggerWithContext(ctx context.Context, optFuncList ...OptionFunc) logx.Logger {
+// NewGoZeroELKLoggerWithContext new go-zero elk logger
+func NewGoZeroELKLoggerWithContext(ctx context.Context, optFuncList ...OptionFunc) logx.Logger {
 	var (
 		logger         logx.Logger
 		loggerELK, err = WithContext(ctx, optFuncList...)
@@ -29,40 +32,25 @@ func NewXELKLoggerWithContext(ctx context.Context, optFuncList ...OptionFunc) lo
 		logger.Errorf("new ELKLogger WithContext err: %+v", err)
 		return logger
 	}
-	logger = &XELKLogger{ELKLogger: loggerELK}
+	logger = &GoZeroELKLogger{ELKLogger: loggerELK}
 	return logger
 }
 
-//// NewXELKLoggerWithContext new go-zero elk logger
-//func NewXELKLoggerWithContext(ctx context.Context, optFuncList ...OptionFunc) (logx.Logger, func() error) {
-//	var (
-//		logger         logx.Logger
-//		loggerELK, err = WithContext(ctx, optFuncList...)
-//	)
-//	if err != nil {
-//		logger = logx.WithContext(ctx)
-//		logger.Errorf("new ELKLogger WithContext err: %+v", err)
-//		return logger, func() error {
-//			return nil
-//		}
-//	}
-//	logger = &XELKLogger{ELKLogger: loggerELK}
-//	return logger, loggerELK.Close
-//}
-
-type XELKLogger struct {
+// GoZeroELKLogger go-zero elk logger
+type GoZeroELKLogger struct {
 	*ELKLogger
 }
 
-func (e *XELKLogger) WithDuration(d time.Duration) logx.Logger {
-	e.ELKLogger.WithDuration(d)
-	return e
+// WithDuration 打印日志携带耗时
+func (g *GoZeroELKLogger) WithDuration(d time.Duration) logx.Logger {
+	g.ELKLogger.WithDuration(d)
+	return g
 }
 
+// ELKLogger elk logger
 type ELKLogger struct {
 	logrus.FieldLogger
 	Duration string
-	//conn     net.Conn
 	*Option
 }
 
@@ -74,7 +62,24 @@ type addrConn struct {
 
 var defaultPoolSize = 32
 
-func (a *addrConn) GetConn(addr string) (net.Conn, error) {
+func init() {
+	const loadKey = "LogPoolSize"
+	var s = os.Getenv(loadKey)
+	if len(s) == 0 {
+		return
+	}
+	var i, err = strconv.Atoi(s)
+	if err != nil {
+		return
+	}
+	if i > 0 {
+		defaultPoolSize = i
+	}
+	fmt.Println(defaultPoolSize)
+}
+
+// getConn 获取TCP连接
+func (a *addrConn) getConn(addr string) (net.Conn, error) {
 	var v, ok = a.connPoolMap.Load(addr)
 	if !ok {
 		var conn, err = net.DialTimeout("tcp", addr, 100*time.Millisecond)
@@ -103,12 +108,7 @@ func (a *addrConn) GetConn(addr string) (net.Conn, error) {
 	return connPool[rand.Intn(len(connPool))], nil
 }
 
-// GetConn 获取连接
-//func (e *ELKLogger) GetConn() net.Conn {
-//	return e.conn
-//}
-
-// WithContext new elk logger
+// WithContext new elk logger with context
 func WithContext(ctx context.Context, optFuncList ...OptionFunc) (*ELKLogger, error) {
 	var (
 		logger = logrus.New()
@@ -125,14 +125,9 @@ func WithContext(ctx context.Context, optFuncList ...OptionFunc) (*ELKLogger, er
 		"FuncName": elk.FuncName,
 	}
 
-	if conn, err = addrConnObj.GetConn(elk.Address); err != nil {
+	if conn, err = addrConnObj.getConn(elk.Address); err != nil {
 		return nil, err
 	}
-
-	//if conn, err = net.DialTimeout("tcp", elk.Address, 100*time.Millisecond); err != nil {
-	//	return nil, err
-	//}
-	//elk.conn = conn
 
 	var hook = logrustash.New(conn, logrustash.DefaultFormatter(fields))
 	logger.Hooks.Add(hook)
@@ -144,10 +139,12 @@ func WithContext(ctx context.Context, optFuncList ...OptionFunc) (*ELKLogger, er
 	return elk, nil
 }
 
+// WithContextAndAddress new elk logger with context and address
 func WithContextAndAddress(ctx context.Context, addr string) (*ELKLogger, error) {
 	return WithContext(ctx, WithAddress(addr))
 }
 
+// SetTraceID 给context设置TraceID
 func SetTraceID(ctx context.Context, traceID string) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
@@ -167,38 +164,32 @@ func getTraceID(ctx context.Context) string {
 	return v
 }
 
-// Close 关闭连接
-//func (e *ELKLogger) Close() error {
-//	if e == nil {
-//		return nil
-//	}
-//
-//	if e.conn == nil {
-//		return nil
-//	}
-//	return e.conn.Close()
-//}
-
+// Errorv error v
 func (e *ELKLogger) Errorv(v interface{}) {
 	e.FieldLogger.Error(v)
 }
 
+// Infov info v
 func (e *ELKLogger) Infov(v interface{}) {
 	e.FieldLogger.Info(v)
 }
 
+// Slow 目前还是通过info打印
 func (e *ELKLogger) Slow(args ...interface{}) {
 	e.FieldLogger.Info(args...)
 }
 
+// Slowf 目前还是通过infof打印
 func (e *ELKLogger) Slowf(s string, args ...interface{}) {
 	e.FieldLogger.Infof(s, args...)
 }
 
+// Slowv 目前还是通过infov打印
 func (e *ELKLogger) Slowv(v interface{}) {
 	e.FieldLogger.Info(v)
 }
 
+// WithDuration 打印日志携带耗时
 func (e *ELKLogger) WithDuration(d time.Duration) *ELKLogger {
 	e.Duration = ReprOfDuration(d)
 	return e
