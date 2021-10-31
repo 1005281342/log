@@ -132,8 +132,9 @@ func WithContext(ctx context.Context, optFuncList ...OptionFunc) (*ELKLogger, er
 	var hook = logrustash.New(conn, logrustash.DefaultFormatter(fields))
 	logger.Hooks.Add(hook)
 
+	elk.fixTraceID(ctx)
 	var entry = logger.WithFields(logrus.Fields{
-		TraceIDKey: getTraceID(ctx),
+		TraceIDKey: elk.TraceID,
 	})
 	elk.FieldLogger = entry
 	return elk, nil
@@ -144,24 +145,19 @@ func WithContextAndAddress(ctx context.Context, addr string) (*ELKLogger, error)
 	return WithContext(ctx, WithAddress(addr))
 }
 
-// SetTraceID 给context设置TraceID
-func SetTraceID(ctx context.Context, traceID string) context.Context {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	return context.WithValue(ctx, TraceIDKey, traceID)
+func (e *ELKLogger) hasTraceID() bool {
+	return e.TraceID != ""
 }
 
-func getTraceID(ctx context.Context) string {
-	if ctx == nil {
-		return uuid.NewString()
+func (e *ELKLogger) fixTraceID(ctx context.Context) {
+	if e.hasTraceID() {
+		return
 	}
-
-	var v, ok = (ctx.Value(TraceIDKey)).(string)
-	if !ok || v == "" {
-		return uuid.NewString()
+	e.TraceID = traceIdFromContext(ctx)
+	if e.hasTraceID() {
+		return
 	}
-	return v
+	e.TraceID = uuid.NewString()
 }
 
 // Errorv error v

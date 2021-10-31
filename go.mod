@@ -7,4 +7,5 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/sirupsen/logrus v1.8.1
 	github.com/tal-tech/go-zero v1.2.2
+	go.opentelemetry.io/otel/trace v1.0.1
 )

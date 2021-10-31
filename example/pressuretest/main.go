@@ -36,10 +36,10 @@ var cnt int32
 
 func sendMessageWithGoZeroELKLogger3() {
 	var ctx = context.Background()
-	ctx = log.SetTraceID(ctx, "jesontest20210127-1")
 	var loggerX = log.NewGoZeroELKLoggerWithContext(ctx, log.WithAddress("127.0.0.1:5000"),
 		log.WithAppName("jeson"),
 		log.WithFuncName("sendMessageWithGoZeroELKLogger3"),
+		log.WithTraceID("jesontest20211031-2"),
 	)
 	loggerX.Infof("hello %d", cnt)
 	atomic.AddInt32(&cnt, 1)

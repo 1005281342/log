@@ -8,12 +8,11 @@ import (
 
 func main() {
 	var ctx = context.Background()
-	ctx = log.SetTraceID(ctx, "jesontest20210124-3")
-
 	var logger, err = log.WithContext(ctx,
 		log.WithAddress("127.0.0.1:5000"),
 		log.WithAppName("jeson"),
 		log.WithFuncName("test"),
+		log.WithTraceID("jesontest20210124-3"),
 	)
 	if err != nil {
 		fmt.Printf("new logger failed: %+v \n", err)

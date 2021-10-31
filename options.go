@@ -1,10 +1,16 @@
 package log
 
+import (
+	"context"
+	"go.opentelemetry.io/otel/trace"
+)
+
 // Option ...
 type Option struct {
 	Address  string
 	AppName  string
 	FuncName string
+	TraceID  string
 }
 
 // OptionFunc ...
@@ -29,4 +35,20 @@ func WithAppName(name string) func(opt *Option) {
 	return func(opt *Option) {
 		opt.AppName = name
 	}
+}
+
+// WithTraceID with traceID
+func WithTraceID(traceID string) func(opt *Option) {
+	return func(opt *Option) {
+		opt.TraceID = traceID
+	}
+}
+
+func traceIdFromContext(ctx context.Context) string {
+	spanCtx := trace.SpanContextFromContext(ctx)
+	if spanCtx.HasTraceID() {
+		return spanCtx.TraceID().String()
+	}
+
+	return ""
 }
