@@ -1,6 +1,6 @@
 module github.com/1005281342/log
 
-go 1.15
+go 1.16
 
 require (
 	github.com/bshuster-repo/logrus-logstash-hook v1.0.2
