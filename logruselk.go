@@ -78,11 +78,19 @@ func init() {
 	fmt.Println(defaultPoolSize)
 }
 
+func (a *addrConn) buildConn(addr string) (net.Conn, error) {
+	var conn, err = net.DialTimeout("tcp", addr, 100*time.Millisecond)
+	if err != nil {
+		return nil, err
+	}
+	return conn, nil
+}
+
 // getConn 获取TCP连接
 func (a *addrConn) getConn(addr string) (net.Conn, error) {
 	var v, ok = a.connPoolMap.Load(addr)
 	if !ok {
-		var conn, err = net.DialTimeout("tcp", addr, 100*time.Millisecond)
+		var conn, err = a.buildConn(addr)
 		if err != nil {
 			return nil, err
 		}
@@ -96,8 +104,8 @@ func (a *addrConn) getConn(addr string) (net.Conn, error) {
 	if connPool, ok = v.([]net.Conn); !ok {
 		return nil, fmt.Errorf("connPool not is `[]net.Conn`")
 	}
-	if len(connPool) <= defaultPoolSize {
-		var conn, err = net.DialTimeout("tcp", addr, 100*time.Millisecond)
+	if len(connPool) <= 0 {
+		var conn, err = a.buildConn(addr)
 		if err != nil {
 			return nil, err
 		}
@@ -105,7 +113,30 @@ func (a *addrConn) getConn(addr string) (net.Conn, error) {
 		a.connPoolMap.Store(addr, connPool)
 		return conn, nil
 	}
-	return connPool[rand.Intn(len(connPool))], nil
+
+	rand.Seed(time.Now().UnixNano())
+	var (
+		idx = rand.Intn(len(connPool))
+		ra  = rand.Int()
+	)
+
+	if ra&3 == 0 {
+		var conn, err = a.buildConn(addr)
+		if err == nil && conn != nil {
+			connPool[idx] = conn
+		}
+		a.connPoolMap.Store(addr, connPool)
+	} else if len(connPool) <= defaultPoolSize {
+		var conn, err = a.buildConn(addr)
+		if err != nil {
+			return nil, err
+		}
+		connPool = append(connPool, conn)
+		a.connPoolMap.Store(addr, connPool)
+		return conn, nil
+	}
+
+	return connPool[idx], nil
 }
 
 // WithContext new elk logger with context
