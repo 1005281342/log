@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bshuster-repo/logrus-logstash-hook"
+	gas "github.com/firstrow/goautosocket"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/tal-tech/go-zero/core/logx"
@@ -79,7 +80,8 @@ func init() {
 }
 
 func (a *addrConn) buildConn(addr string) (net.Conn, error) {
-	var conn, err = net.DialTimeout("tcp", addr, 100*time.Millisecond)
+	var conn, err = gas.Dial("tcp", addr)
+	//var conn, err = net.DialTimeout("tcp", addr, 100*time.Millisecond)
 	if err != nil {
 		return nil, err
 	}

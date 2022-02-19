@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	pressure(time.Second*60, 1*time.Millisecond)
+	pressure(time.Second*60, 2*time.Millisecond)
 }
 
 func pressure(lifeCycle time.Duration, interval time.Duration) {
