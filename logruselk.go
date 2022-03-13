@@ -14,7 +14,7 @@ import (
 	gas "github.com/firstrow/goautosocket"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
-	"github.com/tal-tech/go-zero/core/logx"
+	"github.com/zeromicro/go-zero/core/logx"
 )
 
 const (
